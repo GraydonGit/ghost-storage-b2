@@ -203,7 +203,7 @@ class BackblazeB2Adapter extends StorageBase {
 	 * @param {string} [targetDir] Target
 	 * @returns {Promise<boolean>}
 	 */
-	async exists(fileName, targetDir) {
+	async exists(fileName, targetDir) {;
 		debug(`exists( fileName: '${fileName}', target: '${targetDir}' )`);
 
 		const filePath = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir(), fileName);
