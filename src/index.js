@@ -135,6 +135,27 @@ class BackblazeB2Adapter extends StorageBase {
 		debug(`Download URL: ${this.config.downloadUrl}`);
 		
 	}
+
+	generatePath(image, width = null) {
+	        // Example implementation (customize as needed)
+	        const now = new Date();
+	        const year = now.getFullYear();
+	        const month = `${now.getMonth() + 1}`.padStart(2, '0');
+	        const day = `${now.getDate()}`.padStart(2, '0');
+
+	        // Assuming image.name includes the file extension
+	        const baseName = path.basename(image.name, path.extname(image.name));
+	        const extension = path.extname(image.name);
+	
+	        let newPath = `${this.config.pathPrefix || ''}/${year}/${month}/${day}`;
+	        if (width) {
+	            newPath += `/${baseName}_w${width}${extension}`;
+	        } else {
+	            newPath += `/${baseName}${extension}`;
+	        }
+	
+	        return newPath;
+    }
 	
 	/**
 	 * Saves a buffer at targetPath, enables Ghost's automatic responsive images.
@@ -154,7 +175,7 @@ class BackblazeB2Adapter extends StorageBase {
 
 	async save(image, targetDir) {
         	// Dynamically load the active theme within this method
-        	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
+        	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/theme-engine/active'));
     		const imageSizes = activeTheme.get().config('image_sizes');
 	
 	        // Original image upload
@@ -177,7 +198,6 @@ class BackblazeB2Adapter extends StorageBase {
         	url: this.generateUrl(originalImagePath),
         };
     }
-
 	/**
 	 * Check whether the file exists or not.
 	 * 
