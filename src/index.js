@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import Debug from 'debug';
 import B2 from 'backblaze-b2';
@@ -153,35 +153,31 @@ class BackblazeB2Adapter extends StorageBase {
 	}
 
 	async save(image, targetDir) {
-	    // Define this array somewhere appropriate in your class or as a configuration
-	    const predefinedWidths = [160, 320, 600, 960, 1000, 1200, 1600, 2000]; // Example widths for resizing
+	    debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+	    
+	    // Define predefined widths
+	    const predefinedWidths = [160, 320, 600, 960, 1000, 1200, 1600, 2000]; 
 	
 	    const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+	    const buffer = fs.readFileSync(image.path);
 
-	    // Read the file asynchronously			
-	    const buffer = await fs.readFile(image.path);
-	
-	    // Get current date components for resizing directory structure
+	    // Assume 'year' and 'month' need to be part of the file path
+	    // Convert them to strings to avoid errors with path.join
 	    const currentDate = new Date();
-	    const year = currentDate.getFullYear().toString();
-	    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0'); // Two-digit month
+	    const year = String(currentDate.getFullYear());
+	    const month = ('0' + (currentDate.getMonth() + 1)).slice(-2); // Ensures two digits
 	
 	    // Resize images
 	    for (const width of predefinedWidths) { 
-	        // Construct the resized file path with date components
 	        const resizedFilePath = path.join(directory, 'sizes', `w${width}`, year, month, image.name);
 	
 	        try {
-		    console.log('Full resized file path:', resizedFilePath);
-	            // Ensure necessary directories exist 
-	            await fs.mkdir(path.dirname(resizedFilePath), { recursive: true });
-	
 	            const resizedImageBuffer = await sharp(buffer)
-	                .resize(width) 
+	                .resize(width)
 	                .toBuffer();
 	
 	            await this.upload(resizedImageBuffer, resizedFilePath);
-	            console.log(`Resized and uploaded version: ${resizedFilePath}`);
+	            debug(`\t Resized and uploaded version: ${resizedFilePath}`);
 	        } catch (error) {
 	            console.error(`Error resizing image: ${error}`);
 	        }
@@ -190,24 +186,6 @@ class BackblazeB2Adapter extends StorageBase {
 	    // ... (rest of your code for uploading the original image)
 	}
 
-	
-	/**
-	 * Read a file and upload to B2.
-	 * 
-	 * @param {Image} image File path to image.
-	 * @param {string} targetDir 
-	 * @returns {Promise<string>}
-	 */
-	async save(image, targetDir) {
-		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
-
-		const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
-
-		const buffer = fs.readFileSync(image.path);
-		// StorageBase.getUniqueFileName() returns a {Promise}, await is necessary
-		const name = await this.getUniqueFileName(image, directory);
-		return await this.upload(buffer, name);
-	}
 
 	/**
 	 * Check whether the file exists or not.
