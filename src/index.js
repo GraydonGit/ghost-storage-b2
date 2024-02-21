@@ -152,42 +152,41 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
-
-
 	async save(image, targetDir) {
-		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+	    // ... (other parts of the code)
 	
-	        // Load theme settings
-	        const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/theme-engine/active'));
-	        const imageSizes = activeTheme.get().config('image_sizes');
+	    const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+	    const buffer = fs.readFileSync(image.path);
 	
-	        const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
-	        const buffer = fs.readFileSync(image.path);
+	    // Get current date components for resizing directory structure
+	    const currentDate = new Date();
+	    const year = currentDate.getFullYear();
+	    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0'); // Two-digit month
 	
-	        // Resize images
-	        for (const size of Object.keys(imageSizes)) {
-	            const width = imageSizes[size].width;
-	            const resizedFilePath = path.join(directory, 'sizes', `w${width}`, image.name);
+	    // Resize images
+	    for (const width of predefinedWidths) { 
+	        // Construct the resized file path with date components
+	        const resizedFilePath = path.join(directory, 'sizes', `w${width}`, year, month, image.name);
 	
-	            try {
-	                const resizedImageBuffer = await sharp(buffer)
-	                    .resize(width)
-	                    .toBuffer();
+	        try {
+	            // Ensure necessary directories exist 
+	            await fsPromises.mkdir(path.dirname(resizedFilePath), { recursive: true }); 
 	
-	                await this.upload(resizedImageBuffer, resizedFilePath);
-	                debug(`\t Resized and uploaded version: ${resizedFilePath}`);
-	            } catch (error) {
-	                console.error(`Error resizing image: ${error}`);
-	            }
+	            const resizedImageBuffer = await sharp(buffer)
+	                .resize(width) 
+	                .toBuffer();
+	
+	            await this.upload(resizedImageBuffer, resizedFilePath);
+	            debug(`\t Resized and uploaded version: ${resizedFilePath}`);
+	        } catch (error) {
+	            console.error(`Error resizing image: ${error}`);
 	        }
-	
-	        // Upload original image (ensure this happens after resizing)
-	        const name = await this.getUniqueFileName(image, directory);
-	        const originalImageURL = await this.upload(buffer, name);
-	
-	        return originalImageURL; 
 	    }
+	
+	    // ... (rest of your code for uploading the original image)
+	}
 
+	
 	/**
 	 * Read a file and upload to B2.
 	 * 
