@@ -4,9 +4,8 @@ import Debug from 'debug';
 import B2 from 'backblaze-b2';
 import B2Bucket from 'backblaze-b2/dist/bucket';
 import errors from '@tryghost/errors';
-import  StorageBase from 'ghost-storage-base';
-
-import sharp from 'sharp';
+import StorageBase from 'ghost-storage-base';
+const sharp = require('sharp');
 
 const debug = Debug('ghost-storage-b2');
 
@@ -152,40 +151,47 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
+	/**
+	 * Read a file and upload to B2.
+	 * 
+	 * @param {Image} image File path to image.
+	 * @param {string} targetDir 
+	 * @returns {Promise<string>}
+	 */
 	async save(image, targetDir) {
-	    debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
-	    
-	    // Define predefined widths
-	    const predefinedWidths = [160, 320, 600, 960, 1000, 1200, 1600, 2000]; 
-	
-	    const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
-	    const buffer = fs.readFileSync(image.path);
+		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
 
-	    // Assume 'year' and 'month' need to be part of the file path
-	    // Convert them to strings to avoid errors with path.join
-	    const currentDate = new Date();
-	    const year = String(currentDate.getFullYear());
-	    const month = ('0' + (currentDate.getMonth() + 1)).slice(-2); // Ensures two digits
-	
-	    // Resize images
-	    for (const width of predefinedWidths) { 
-	        const resizedFilePath = path.join(directory, 'sizes', `w${width}`, year, month, image.name);
-	
-	        try {
-	            const resizedImageBuffer = await sharp(buffer)
-	                .resize(width)
-	                .toBuffer();
-	
-	            await this.upload(resizedImageBuffer, resizedFilePath);
-	            debug(`\t Resized and uploaded version: ${resizedFilePath}`);
-	        } catch (error) {
-	            console.error(`Error resizing image: ${error}`);
-	        }
-	    }
-	
-	    // ... (rest of your code for uploading the original image)
+		const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+
+		const buffer = fs.readFileSync(image.path);
+		// StorageBase.getUniqueFileName() returns a {Promise}, await is necessary
+		const name = await this.getUniqueFileName(image, directory);
+		return await this.upload(buffer, name);
 	}
 
+
+	async saveWithResizedImage(image, targetDir) {
+	    debug(`saveWithResizedImage( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+	
+	    // Original image upload
+	    const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+	    const buffer = fs.readFileSync(image.path);
+	    const name = await this.getUniqueFileName(image, directory);
+	    await this.upload(buffer, name);
+	
+	    // Resizing image to width of 100
+	    const resizedBuffer = await sharp(buffer).resize(100).toBuffer();
+	    // Constructing the path for resized image
+	    const now = new Date();
+	    const resizedDirectory = path.join(directory, '/sizes/w100', now.getFullYear().toString(), (`0${now.getMonth() + 1}`).slice(-2));
+	    const resizedName = path.join(resizedDirectory, path.basename(name));
+
+	    // Ensure the resized image directory exists
+	    await fs.mkdir(resizedDirectory, { recursive: true });
+		
+	    // Upload resized image
+	    await this.upload(resizedBuffer, resizedName);
+	}	
 
 	/**
 	 * Check whether the file exists or not.
