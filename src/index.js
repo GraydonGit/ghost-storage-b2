@@ -150,12 +150,13 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
-	// Load the active theme configuration
-	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
-	const fs = require('fs-extra');
-	const sharp = require('sharp');
-
 	async save(image) {
+
+		// Load the active theme configuration
+		const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
+		const fs = require('fs-extra');
+		const sharp = require('sharp');
+		
 	        // Ensure you load the image sizes every time to account for possible theme changes
 	        const imageSizes = activeTheme.get().config('image_sizes');
 	
