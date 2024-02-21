@@ -1,4 +1,4 @@
-import fs from 'fs';
+const fs = require('fs').promises;
 import path from 'path';
 import Debug from 'debug';
 import B2 from 'backblaze-b2';
@@ -179,8 +179,9 @@ class BackblazeB2Adapter extends StorageBase {
     		const imageSizes = activeTheme.get().config('image_sizes');
 	
 	        // Original image upload
+		const originalImageBuffer = await fs.readFile(image.path);
 	        const originalImagePath = this.generatePath(image);
-	        await this.uploadToB2(image.path, originalImagePath);
+	        await this.upload(originalImageBuffer, originalImagePath);
 
         // Resize and upload for each theme-defined size
         for (const sizeKey in imageSizes) {
@@ -190,7 +191,7 @@ class BackblazeB2Adapter extends StorageBase {
                 	.toBuffer();
             
         	const resizedImagePath = `/sizes/w${size.width}/${this.generatePath(image, size.width)}`;
-        	await this.uploadToB2FromBuffer(resizedImage, resizedImagePath);
+        	await this.upload(resizedImageBuffer, resizedImagePath); // Directly use upload method with buffer
         }
 
         // Return the URL or storage path where the original image can be accessed
