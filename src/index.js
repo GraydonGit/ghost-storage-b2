@@ -150,23 +150,35 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
-	/**
-	 * Read a file and upload to B2.
-	 * 
-	 * @param {Image} image File path to image.
-	 * @param {string} targetDir 
-	 * @returns {Promise<string>}
-	 */
-	async save(image, targetDir) {
-		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+	// Load the active theme configuration
+	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
+	const fs = require('fs-extra');
+	const sharp = require('sharp');
 
-		const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+	async save(image) {
+	        // Ensure you load the image sizes every time to account for possible theme changes
+	        const imageSizes = activeTheme.get().config('image_sizes');
+	
+	        // Original image upload
+	        const originalImagePath = this.generatePath(image);
+	        await this.uploadToB2(image.path, originalImagePath);
 
-		const buffer = fs.readFileSync(image.path);
-		// StorageBase.getUniqueFileName() returns a {Promise}, await is necessary
-		const name = await this.getUniqueFileName(image, directory);
-		return await this.upload(buffer, name);
-	}
+        // Resize and upload for each theme-defined size
+        for (const sizeKey in imageSizes) {
+        	const size = imageSizes[sizeKey];
+        	const resizedImage = await sharp(image.path)
+                	.resize({ width: size.width })
+                	.toBuffer();
+            
+        	const resizedImagePath = `/sizes/w${size.width}/${this.generatePath(image, size.width)}`;
+        	await this.uploadToB2FromBuffer(resizedImage, resizedImagePath);
+        }
+
+        // Return the URL or storage path where the original image can be accessed
+        return {
+        	url: this.generateUrl(originalImagePath),
+        };
+    }
 
 	/**
 	 * Check whether the file exists or not.
