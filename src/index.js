@@ -1,11 +1,10 @@
-const fs = require('fs').promises;
+import fs from 'fs';
 import path from 'path';
 import Debug from 'debug';
 import B2 from 'backblaze-b2';
 import B2Bucket from 'backblaze-b2/dist/bucket';
 import errors from '@tryghost/errors';
 import  StorageBase from 'ghost-storage-base';
-// New
 import sharp from 'sharp';
 
 const debug = Debug('ghost-storage-b2');
@@ -135,27 +134,6 @@ class BackblazeB2Adapter extends StorageBase {
 		debug(`Download URL: ${this.config.downloadUrl}`);
 		
 	}
-
-	generatePath(image, width = null) {
-	        // Example implementation (customize as needed)
-	        const now = new Date();
-	        const year = now.getFullYear();
-	        const month = `${now.getMonth() + 1}`.padStart(2, '0');
-	        const day = `${now.getDate()}`.padStart(2, '0');
-
-	        // Assuming image.name includes the file extension
-	        const baseName = path.basename(image.name, path.extname(image.name));
-	        const extension = path.extname(image.name);
-	
-	        let newPath = `${this.config.pathPrefix || ''}/${year}/${month}/${day}`;
-	        if (width) {
-	            newPath += `/${baseName}_w${width}${extension}`;
-	        } else {
-	            newPath += `/${baseName}${extension}`;
-	        }
-	
-	        return newPath;
-    }
 	
 	/**
 	 * Saves a buffer at targetPath, enables Ghost's automatic responsive images.
@@ -173,32 +151,51 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
+	/**
+	 * Read a file and upload to B2.
+	 * 
+	 * @param {Image} image File path to image.
+	 * @param {string} targetDir 
+	 * @returns {Promise<string>}
+	 */
 	async save(image, targetDir) {
-        	// Dynamically load the active theme within this method
-        	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/theme-engine/active'));
-    		const imageSizes = activeTheme.get().config('image_sizes');
+	        debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
 	
-	        // Original image upload
-		const originalImageBuffer = await fs.readFile(image.path);
-	        const originalImagePath = this.generatePath(image);
-	        await this.upload(originalImageBuffer, originalImagePath);
+	        // Load theme settings
+	        const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/theme-engine/active'));
+	        const imageSizes = activeTheme.get().config('image_sizes');
+	
+	        const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+	        const buffer = fs.readFileSync(image.path);
+	
+	        // Resize images
+	        for (const size of Object.keys(imageSizes)) {
+	            const width = imageSizes[size].width;
+	            const resizedFilePath = path.join(directory, 'sizes', `w${width}`, image.name);
+	
+	            try {
+	                const resizedImageBuffer = await sharp(buffer)
+	                    .resize(width)
+	                    .toBuffer();
+	
+	                await this.upload(resizedImageBuffer, resizedFilePath);
+	                debug(`\t Resized and uploaded version: ${resizedFilePath}`);
+	            } catch (error) {
+	                console.error(`Error resizing image: ${error}`);
+	            }
+	        }
+	
+	        // Upload original image (ensure this happens after resizing)
+	        const name = await this.getUniqueFileName(image, directory);
+	        const originalImageURL = await this.upload(buffer, name);
+	
+	        return originalImageURL; 
+	    }
+	
+	    // ... other existing functions
+	}
+	
 
-        // Resize and upload for each theme-defined size
-        for (const sizeKey in imageSizes) {
-        	const size = imageSizes[sizeKey];
-        	const resizedImageBuffer = await sharp(image.path)
-                	.resize({ width: size.width })
-                	.toBuffer();
-            
-        	const resizedImagePath = `/sizes/w${size.width}/${this.generatePath(image, size.width)}`;
-        	await this.upload(resizedImageBuffer, resizedImagePath); // Directly use upload method with buffer
-        }
-
-        // Return the URL or storage path where the original image can be accessed
-        return {
-        	url: this.generateUrl(originalImagePath),
-        };
-    }
 	/**
 	 * Check whether the file exists or not.
 	 * 
