@@ -5,6 +5,7 @@ import B2 from 'backblaze-b2';
 import B2Bucket from 'backblaze-b2/dist/bucket';
 import errors from '@tryghost/errors';
 import  StorageBase from 'ghost-storage-base';
+
 import sharp from 'sharp';
 
 const debug = Debug('ghost-storage-b2');
@@ -151,15 +152,10 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
-	/**
-	 * Read a file and upload to B2.
-	 * 
-	 * @param {Image} image File path to image.
-	 * @param {string} targetDir 
-	 * @returns {Promise<string>}
-	 */
+
+
 	async save(image, targetDir) {
-	        debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
 	
 	        // Load theme settings
 	        const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/theme-engine/active'));
@@ -191,10 +187,24 @@ class BackblazeB2Adapter extends StorageBase {
 	
 	        return originalImageURL; 
 	    }
-	
-	    // ... other existing functions
+
+	/**
+	 * Read a file and upload to B2.
+	 * 
+	 * @param {Image} image File path to image.
+	 * @param {string} targetDir 
+	 * @returns {Promise<string>}
+	 */
+	async save(image, targetDir) {
+		debug(`save( image: '${JSON.stringify(image)}', target: '${targetDir}' )`);
+
+		const directory = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir());
+
+		const buffer = fs.readFileSync(image.path);
+		// StorageBase.getUniqueFileName() returns a {Promise}, await is necessary
+		const name = await this.getUniqueFileName(image, directory);
+		return await this.upload(buffer, name);
 	}
-	
 
 	/**
 	 * Check whether the file exists or not.
@@ -203,7 +213,7 @@ class BackblazeB2Adapter extends StorageBase {
 	 * @param {string} [targetDir] Target
 	 * @returns {Promise<boolean>}
 	 */
-	async exists(fileName, targetDir) {;
+	async exists(fileName, targetDir) {
 		debug(`exists( fileName: '${fileName}', target: '${targetDir}' )`);
 
 		const filePath = path.join(this.config.pathPrefix || '', targetDir || this.getTargetDir(), fileName);
