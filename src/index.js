@@ -186,7 +186,7 @@ class BackblazeB2Adapter extends StorageBase {
         // Resize and upload for each theme-defined size
         for (const sizeKey in imageSizes) {
         	const size = imageSizes[sizeKey];
-        	const resizedImage = await sharp(image.path)
+        	const resizedImageBuffer = await sharp(image.path)
                 	.resize({ width: size.width })
                 	.toBuffer();
             
