@@ -6,8 +6,7 @@ import B2Bucket from 'backblaze-b2/dist/bucket';
 import errors from '@tryghost/errors';
 import  StorageBase from 'ghost-storage-base';
 
-// Load the active theme configuration
-const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
+// New
 const fs = require('fs-extra');
 const sharp = require('sharp');
 
@@ -155,9 +154,10 @@ class BackblazeB2Adapter extends StorageBase {
 		return await this.upload(buffer, storagePath);
 	}
 
-	async save(image) {	
-	        // Ensure you load the image sizes every time to account for possible theme changes
-	        const imageSizes = activeTheme.get().config('image_sizes');
+	async save(image, targetDir) {
+        	// Dynamically load the active theme within this method
+        	const activeTheme = require(path.join(process.cwd(), 'current/core/frontend/services/themes/active'));
+    		const imageSizes = activeTheme.get().config('image_sizes');
 	
 	        // Original image upload
 	        const originalImagePath = this.generatePath(image);
