@@ -5,10 +5,8 @@ import B2 from 'backblaze-b2';
 import B2Bucket from 'backblaze-b2/dist/bucket';
 import errors from '@tryghost/errors';
 import  StorageBase from 'ghost-storage-base';
-
 // New
-const fs = require('fs-extra');
-const sharp = require('sharp');
+import sharp from 'sharp';
 
 const debug = Debug('ghost-storage-b2');
 
